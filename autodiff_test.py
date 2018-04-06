@@ -84,22 +84,25 @@ def test_exp():
     assert np.array_equal(grad_x2_val, np.exp(x2_val))
 
 def test_log_reg():
-    w0 = ad.Variable(name = "w0")
-    w1 = ad.Variable(name = "w1")
-    w2 = ad.Variable(name = "w1")
-    x1 = ad.Variable(name = "x1")
-    x2 = ad.Variable(name = "x2")
+    b = ad.Variable(name = "b")
+    w = ad.Variable(name = "w")
+    x = ad.Variable(name = "x")
 
-    y = 1 / (1 + ad.exp_op(-1 * (w0 + w1 * x1 + w2 * x2)))
-    grad_x1, grad_x2 = ad.gradients(y, [x1, x2])
-    executor = ad.Executor([y, grad_x1, grad_x2])
+    y = 1 / (1 + ad.exp_op(-1 * (b + (w @ x))))
+    x_grad, b_grad = ad.gradients(y, [x, b])
+    executor = ad.Executor([y, x_grad, b_grad])
 
-    vals = {w0: 2.0, w1: 1.0, w2: -2.0, x1: 3.0, x2: 2.0}
-    y_val, grad_x1_val, grad_x2_val = executor.run(feed_dict = vals)
+    w_val = np.array([1.0, -2.0])
+    x_val = np.array([3.0, 2.0])
+    vals = {b: 2.0, w: w_val, x: x_val}
+
+    y_val, grad_vals, bias_grad_val = executor.run(feed_dict = vals)
+
     assert isinstance(y, ad.Node)
     assert np.isclose(y_val, 0.731, 1e-03, 1e-03)
-    assert np.isclose(grad_x1_val, 0.197, 1e-03, 1e-03)
-    assert np.isclose(grad_x2_val, -.393, 1e-03, 1e-03)
+    assert np.isclose(bias_grad_val, 0.196, 1e-03, 1e-03)
+    assert np.isclose(grad_vals[0], 0.197, 1e-03, 1e-03)
+    assert np.isclose(grad_vals[1], -.393, 1e-03, 1e-03)
 
 def test_add_two_vars():
     x2 = ad.Variable(name = "x2")

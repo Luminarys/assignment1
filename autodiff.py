@@ -36,6 +36,9 @@ class Node(object):
         else:
             return mul_byconst_op(self, other)
 
+    def __matmul__(self, other):
+        return matmul_op(self, other)
+
     def __rtruediv__(self, other):
         if not isinstance(other, Node):
             return div_withconst_op(other, self)
@@ -44,6 +47,7 @@ class Node(object):
     # Allow left-hand-side add and multiply.
     __radd__ = __add__
     __rmul__ = __mul__
+    __rmatmul = __matmul__
 
     def __str__(self):
         """Allow print to display node name.""" 
@@ -105,7 +109,7 @@ class AddOp(Op):
     def __call__(self, node_A, node_B):
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
-        new_node.name = "(%s+%s)" % (node_A.name, node_B.name)
+        new_node.name = "(%s + %s)" % (node_A.name, node_B.name)
         return new_node
 
     def compute(self, node, input_vals):
@@ -123,7 +127,10 @@ class AddByConstOp(Op):
         new_node = Op.__call__(self)
         new_node.const_attr = const_val
         new_node.inputs = [node_A]
-        new_node.name = "(%s+%s)" % (node_A.name, str(const_val))
+        if const_val == 0:
+            new_node.name = node_A.name
+        else:
+            new_node.name = "(%s + %s)" % (node_A.name, str(const_val))
         return new_node
 
     def compute(self, node, input_vals):
@@ -140,7 +147,7 @@ class MulOp(Op):
     def __call__(self, node_A, node_B):
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
-        new_node.name = "(%s*%s)" % (node_A.name, node_B.name)
+        new_node.name = "(%s * %s)" % (node_A.name, node_B.name)
         return new_node
 
     def compute(self, node, input_vals):
@@ -159,7 +166,10 @@ class MulByConstOp(Op):
         new_node = Op.__call__(self)
         new_node.const_attr = const_val
         new_node.inputs = [node_A]
-        new_node.name = "(%s*%s)" % (node_A.name, str(const_val))
+        if const_val == 1:
+            new_node.name = node_A.name
+        else:
+            new_node.name = "(%s * %s)" % (node_A.name, str(const_val))
         return new_node
 
     def compute(self, node, input_vals):
@@ -192,7 +202,7 @@ class MatMulOp(Op):
         new_node.matmul_attr_trans_A = trans_A
         new_node.matmul_attr_trans_B = trans_B
         new_node.inputs = [node_A, node_B]
-        new_node.name = "MatMul(%s,%s,%s,%s)" % (node_A.name, node_B.name, str(trans_A), str(trans_B))
+        new_node.name = "(%s%s @ %s%s)" % (node_A.name, "T" if trans_A else "", node_B.name, "T" if trans_B else "")
         return new_node
 
     def compute(self, node, input_vals):
@@ -200,6 +210,7 @@ class MatMulOp(Op):
         assert len(input_vals) == 2
         a = np.transpose(input_vals[0]) if node.matmul_attr_trans_A else input_vals[0]
         b = np.transpose(input_vals[1]) if node.matmul_attr_trans_B else input_vals[1]
+        # Implicitly handles the (N x 1) * Scalar multiplication case
         return np.dot(a, b)
 
     def gradient(self, node, output_grad):
@@ -267,7 +278,7 @@ class ExpOp(Op):
     def __call__(self, node_A):
         new_node = Op.__call__(self)
         new_node.inputs = [node_A]
-        new_node.name = "Exp(%s)" % (node_A.name)
+        new_node.name = "(e^%s)" % (node_A.name)
         return new_node
 
     def compute(self, node, input_vals):

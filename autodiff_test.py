@@ -65,10 +65,41 @@ def test_div_with_const():
     x2_val = 2 * np.ones(1)
     y_val, grad_x2_val= executor.run(feed_dict = {x2 : x2_val})
 
-    print(y_val, grad_x2_val)
     assert isinstance(y, ad.Node)
     assert np.array_equal(y_val, 1 / x2_val)
     assert np.array_equal(grad_x2_val, -1 / (x2_val ** 2))
+
+def test_exp():
+    x2 = ad.Variable(name = "x2")
+    y = ad.exp_op(x2)
+
+    grad_x2, = ad.gradients(y, [x2])
+
+    executor = ad.Executor([y, grad_x2])
+    x2_val = 2 * np.ones(1)
+    y_val, grad_x2_val= executor.run(feed_dict = {x2 : x2_val})
+
+    assert isinstance(y, ad.Node)
+    assert np.array_equal(y_val, np.exp(x2_val))
+    assert np.array_equal(grad_x2_val, np.exp(x2_val))
+
+def test_log_reg():
+    w0 = ad.Variable(name = "w0")
+    w1 = ad.Variable(name = "w1")
+    w2 = ad.Variable(name = "w1")
+    x1 = ad.Variable(name = "x1")
+    x2 = ad.Variable(name = "x2")
+
+    y = 1 / (1 + ad.exp_op(-1 * (w0 + w1 * x1 + w2 * x2)))
+    grad_x1, grad_x2 = ad.gradients(y, [x1, x2])
+    executor = ad.Executor([y, grad_x1, grad_x2])
+
+    vals = {w0: 2.0, w1: 1.0, w2: -2.0, x1: 3.0, x2: 2.0}
+    y_val, grad_x1_val, grad_x2_val = executor.run(feed_dict = vals)
+    assert isinstance(y, ad.Node)
+    assert np.isclose(y_val, 0.731, 1e-03, 1e-03)
+    assert np.isclose(grad_x1_val, 0.197, 1e-03, 1e-03)
+    assert np.isclose(grad_x2_val, -.393, 1e-03, 1e-03)
 
 def test_add_two_vars():
     x2 = ad.Variable(name = "x2")

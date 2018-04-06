@@ -272,11 +272,11 @@ class ExpOp(Op):
 
     def compute(self, node, input_vals):
         assert len(input_vals) == 1
-        return numpy.exp(input_vals[0])
+        return np.exp(input_vals[0])
 
     def gradient(self, node, output_grad):
         assert len(node.inputs) == 1
-        return [exp_op(output_grad) * node.inputs[0]]
+        return [exp_op(node.inputs[0]) * output_grad]
 
 class DivWithConstOp(Op):
     """Op to divide a constant by a value"""

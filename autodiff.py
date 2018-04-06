@@ -1,4 +1,5 @@
 import numpy as np
+from collections import defaultdict
 
 class Node(object):
     """Node in a computation graph."""
@@ -220,7 +221,7 @@ class PlaceholderOp(Op):
 
     def gradient(self, node, output_grad):
         """No gradient function since node has no inputs."""
-        return None
+        return []
 
 class ZerosLikeOp(Op):
     """Op that represents a constant np.zeros_like."""
@@ -290,15 +291,8 @@ class Executor:
         # Traverse graph in topological sort order and compute values for all nodes.
         topo_order = find_topo_sort(self.eval_node_list)
 
-        for node in topo_order:
-            if node in feed_dict:
-                node_to_val_map[node] = feed_dict[node]
-                continue
-
-            input_vals = []
-            for n in node.inputs:
-                input_vals.append(node_to_val_map[n])
-            node_to_val_map[node] = node.op.compute(node, input_vals)
+        for node in filter(lambda n: not n in node_to_val_map, topo_order):
+            node_to_val_map[node] = node.op.compute(node, [node_to_val_map[n] for n in node.inputs])
 
         # Collect node values.
         node_val_results = [node_to_val_map[node] for node in self.eval_node_list]
@@ -319,7 +313,7 @@ def gradients(output_node, node_list):
     """
 
     # a map from node to a list of gradient contributions from each output node
-    node_to_output_grads_list = {}
+    node_to_output_grads_list = defaultdict(list)
     # Special note on initializing gradient of output_node as oneslike_op(output_node):
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
@@ -330,15 +324,10 @@ def gradients(output_node, node_list):
     reverse_topo_order = reversed(find_topo_sort([output_node]))
 
     for node in reverse_topo_order:
-        gradsum = sum(grad for grad in node_to_output_grads_list[node])
-        node_to_output_grad[node] = gradsum
-        grads = node.op.gradient(node, gradsum)
-        if grads == None:
-            continue
-
-        for n, grad in zip(node.inputs, grads):
-            if not n in node_to_output_grads_list:
-                node_to_output_grads_list[n] = []
+        gradin = sum(grad for grad in node_to_output_grads_list[node])
+        node_to_output_grad[node] = gradin
+        gradout = node.op.gradient(node, gradin)
+        for n, grad in zip(node.inputs, gradout):
             node_to_output_grads_list[n].append(grad)
 
     # Collect results for gradients requested.

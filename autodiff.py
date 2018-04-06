@@ -30,7 +30,10 @@ class Node(object):
         return new_node
 
     def __mul__(self, other):
-        """TODO: Your code here"""
+        if isinstance(other, Node):
+            return mul_op(self, other)
+        else:
+            return mul_byconst_op(self, other)
 
     # Allow left-hand-side add and multiply.
     __radd__ = __add__
@@ -279,7 +282,16 @@ class Executor:
         node_to_val_map = dict(feed_dict)
         # Traverse graph in topological sort order and compute values for all nodes.
         topo_order = find_topo_sort(self.eval_node_list)
-        """TODO: Your code here"""
+
+        for node in topo_order:
+            if node in feed_dict:
+                node_to_val_map[node] = feed_dict[node]
+                continue
+
+            input_vals = []
+            for n in node.inputs:
+                input_vals.append(node_to_val_map[n])
+            node_to_val_map[node] = node.op.compute(node, input_vals)
 
         # Collect node values.
         node_val_results = [node_to_val_map[node] for node in self.eval_node_list]
@@ -310,14 +322,25 @@ def gradients(output_node, node_list):
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
     reverse_topo_order = reversed(find_topo_sort([output_node]))
 
-    """TODO: Your code here"""
+    for node in reverse_topo_order:
+        # print("node " + str(node) + " inputs: " + str(node_to_output_grads_list[node]))
+        gradsum = sum(grad for grad in node_to_output_grads_list[node])
+        node_to_output_grad[node] = gradsum
+        grads = node.op.gradient(node, gradsum)
+        if grads == None:
+            continue
+
+        for n, grad in zip(node.inputs, grads):
+            if not n in node_to_output_grads_list:
+                node_to_output_grads_list[n] = []
+            node_to_output_grads_list[n].append(grad)
 
     # Collect results for gradients requested.
     grad_node_list = [node_to_output_grad[node] for node in node_list]
     return grad_node_list
 
 ##############################
-####### Helper Methods ####### 
+####### Helper Methods #######
 ##############################
 
 def find_topo_sort(node_list):

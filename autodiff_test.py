@@ -1,6 +1,18 @@
 import autodiff as ad
 import numpy as np
 
+def test_executor():
+    x = ad.Variable(name = "x")
+    y = ad.Variable(name = "y")
+    z = x + y
+
+    executor = ad.Executor([z])
+    x_val = 2 * np.ones(1)
+    y_val = 3 * np.ones(1)
+    z_val, = executor.run(feed_dict = {x: x_val, y: y_val})
+    assert isinstance(z, ad.Node)
+    assert np.array_equal(z_val, 5 * np.ones(1))
+
 def test_identity():
     x2 = ad.Variable(name = "x2")
     y = x2

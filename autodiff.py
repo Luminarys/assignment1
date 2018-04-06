@@ -36,6 +36,11 @@ class Node(object):
         else:
             return mul_byconst_op(self, other)
 
+    def __rtruediv__(self, other):
+        if not isinstance(other, Node):
+            return div_withconst_op(other, self)
+        else:
+            raise NotImplementedError
     # Allow left-hand-side add and multiply.
     __radd__ = __add__
     __rmul__ = __mul__
@@ -257,6 +262,39 @@ class OnesLikeOp(Op):
     def gradient(self, node, output_grad):
         return [zeroslike_op(node.inputs[0])]
 
+class ExpOp(Op):
+    """Op to exponentiate a value"""
+    def __call__(self, node_A):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "Exp(%s)" % (node_A.name)
+        return new_node
+
+    def compute(self, node, input_vals):
+        assert len(input_vals) == 1
+        return numpy.exp(input_vals[0])
+
+    def gradient(self, node, output_grad):
+        assert len(node.inputs) == 1
+        return [exp_op(output_grad) * node.inputs[0]]
+
+class DivWithConstOp(Op):
+    """Op to divide a constant by a value"""
+    def __call__(self, const_val, node_A):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.const_attr = const_val
+        new_node.name = "(%s/%s)" % (const_val, node_A.name)
+        return new_node
+
+    def compute(self, node, input_vals):
+        assert len(input_vals) == 1
+        return node.const_attr / input_vals[0]
+
+    def gradient(self, node, output_grad):
+        assert len(node.inputs) == 1
+        return [-1 * div_withconst_op(node.const_attr, node.inputs[0] * node.inputs[0])]
+
 # Create global singletons of operators.
 add_op = AddOp()
 mul_op = MulOp()
@@ -266,6 +304,8 @@ matmul_op = MatMulOp()
 placeholder_op = PlaceholderOp()
 oneslike_op = OnesLikeOp()
 zeroslike_op = ZerosLikeOp()
+exp_op = ExpOp()
+div_withconst_op = DivWithConstOp()
 
 class Executor:
     """Executor computes values for a given subset of nodes in a computation graph.""" 
